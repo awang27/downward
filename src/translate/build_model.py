@@ -4,7 +4,7 @@
 import sys
 import itertools
 
-import pddl
+import pddl_utils as pddl
 import timers
 from functools import reduce
 

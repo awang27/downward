@@ -4,7 +4,7 @@
 import itertools
 
 import normalize
-import pddl
+import pddl_utils as pddl
 import timers
 
 class PrologProgram:

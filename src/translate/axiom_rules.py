@@ -1,5 +1,5 @@
 import options
-import pddl
+import pddl_utils as pddl
 import sccs
 import timers
 

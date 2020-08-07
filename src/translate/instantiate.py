@@ -1,11 +1,14 @@
 #! /usr/bin/env python3
 
+import sys
+import os
+sys.path.append(os.path.dirname(__file__))
 
 from collections import defaultdict
 
 import build_model
 import pddl_to_prolog
-import pddl
+import pddl_utils as pddl
 import timers
 
 def get_fluent_facts(task, model):

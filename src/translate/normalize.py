@@ -2,7 +2,7 @@
 
 import copy
 
-import pddl
+import pddl_utils as pddl
 
 class ConditionProxy:
     def clone_owner(self):

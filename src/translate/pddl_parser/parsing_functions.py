@@ -1,7 +1,7 @@
 import sys
 
 import graph
-import pddl
+import pddl_utils as pddl
 
 
 def parse_typed_list(alist, only_variables=False,

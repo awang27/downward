@@ -1,6 +1,6 @@
 import sys
 
-import pddl
+import pddl_utils as pddl
 import pddl_to_prolog
 
 class OccurrencesTracker:

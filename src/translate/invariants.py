@@ -2,7 +2,7 @@ from collections import defaultdict
 import itertools
 
 import constraints
-import pddl
+import pddl_utils as pddl
 import tools
 
 # Notes:

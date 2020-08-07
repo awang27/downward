@@ -5,7 +5,7 @@
 from pddl_to_prolog import Rule, get_variables
 import graph
 import greedy_join
-import pddl
+import pddl_utils as pddl
 
 def get_connected_conditions(conditions):
     agraph = graph.Graph(conditions)

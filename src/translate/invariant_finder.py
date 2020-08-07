@@ -7,7 +7,7 @@ import time
 
 import invariants
 import options
-import pddl
+import pddl_utils as pddl
 import timers
 
 class BalanceChecker:
