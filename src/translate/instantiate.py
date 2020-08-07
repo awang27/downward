@@ -6,10 +6,11 @@ sys.path.append(os.path.dirname(__file__))
 
 from collections import defaultdict
 
-import build_model
+import pg_build_model as build_model
 import pddl_to_prolog
 import pddl_utils as pddl
 import timers
+
 
 def get_fluent_facts(task, model):
     fluent_predicates = set()
@@ -85,6 +86,49 @@ def explore(task):
     model = build_model.compute_model(prog)
     with timers.timing("Completing instantiation"):
         return instantiate(task, model)
+
+
+
+def incremental_instantiate(task, model):
+    assert len(task.axioms) == 0
+    fluent_predicates = set()
+    for action in task.actions:
+        for effect in action.effects:
+            fluent_predicates.add(effect.literal.predicate)
+    fluent_facts = set()
+
+    init_facts = set()
+    init_assignments = {}
+    for element in task.init:
+        if isinstance(element, pddl.Assign):
+            init_assignments[element.fluent] = element.expression
+        else:
+            init_facts.add(element)
+
+    type_to_objects = get_objects_by_type(task.objects, task.types)
+
+    for atom in model:
+        if isinstance(atom.predicate, pddl.Action):
+            action = atom.predicate
+            parameters = action.parameters
+            variable_mapping = {par.name: arg
+                                for par, arg in zip(parameters, atom.args)}
+            inst_action = action.instantiate(
+                variable_mapping, init_facts, init_assignments,
+                fluent_facts, type_to_objects,
+                task.use_min_cost_metric)
+            if inst_action:
+                yield inst_action
+        elif atom.predicate in fluent_predicates:
+            fluent_facts.add(atom)
+    return
+
+def run_partial_grounding(task, action_prioritizer):
+    prog = pddl_to_prolog.translate(task)
+    model = build_model.partial_grounding_compute_model(prog, 
+        action_prioritizer=action_prioritizer)
+    return incremental_instantiate(task, model)
+
 
 if __name__ == "__main__":
     import pddl_parser
