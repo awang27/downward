@@ -2,6 +2,7 @@
 
 
 import sys
+import heapq as hq
 import itertools
 
 import pddl_utils as pddl
@@ -296,6 +297,43 @@ class Queue:
         self.queue_pos += 1
         return result
 
+
+class ActionPriorityQueue:
+    def __init__(self, atoms, action_prioritizer):
+        self.tiebreak = itertools.count()
+        self.action_prioritizer = action_prioritizer
+        self.priority_queue = [(-float("inf"), next(self.tiebreak), atom) for atom in atoms]
+        self.enqueued = {(atom.predicate,) + tuple(atom.args)
+                         for atom in atoms}
+        self.num_pushes = len(atoms)
+        self.new_facts = [atom for atom in atoms]
+
+    def __bool__(self):
+        return len(self.priority_queue) > 0
+
+    __nonzero__ = __bool__
+
+    def push(self, predicate, args):
+        self.num_pushes += 1
+        eff_tuple = (predicate,) + tuple(args)
+        if eff_tuple not in self.enqueued:
+            self.enqueued.add(eff_tuple)
+            new_elm = pddl.Atom(predicate, list(args))
+            score = self.get_score(new_elm)
+            hq.heappush(self.priority_queue, (score, next(self.tiebreak), new_elm))
+            if not isinstance(predicate, pddl.Action):
+                self.new_facts.append(new_elm)
+    
+    def pop(self):
+        _, _, result = hq.heappop(self.priority_queue)
+        return result
+
+    def get_score(self, elm):
+        if isinstance(elm.predicate, pddl.Action):
+            return self.action_prioritizer(elm)
+        return -float("inf")
+
+
 def compute_model(prog):
     with timers.timing("Preparing model"):
         rules = convert_rules(prog)
@@ -324,6 +362,42 @@ def compute_model(prog):
     print("%d final queue length" % len(queue.queue))
     print("%d total queue pushes" % queue.num_pushes)
     return queue.queue
+
+def partial_grounding_compute_model(prog, action_prioritizer):
+    with timers.timing("Preparing model"):
+        rules = convert_rules(prog)
+        unifier = Unifier(rules)
+        # unifier.dump()
+        fact_atoms = sorted(fact.atom for fact in prog.facts)
+        queue = ActionPriorityQueue(fact_atoms, action_prioritizer)
+
+    print("Generated %d rules." % len(rules))
+    with timers.timing("Computing model"):
+        num_pops = 0
+        relevant_atoms = 0
+        auxiliary_atoms = 0
+        while queue:
+            next_atom = queue.pop()
+            num_pops += 1
+            pred = next_atom.predicate
+            if isinstance(pred, str) and "$" in pred:
+                auxiliary_atoms += 1
+            else:
+                relevant_atoms += 1
+            matches = unifier.unify(next_atom)
+            for rule, cond_index in matches:
+                rule.update_index(next_atom, cond_index)
+                rule.fire(next_atom, cond_index, queue.push)
+            while queue.new_facts:
+                atom_to_yield = queue.new_facts.pop()
+                yield atom_to_yield
+            if isinstance(next_atom.predicate, pddl.Action):
+                yield next_atom
+    print("%d relevant atoms" % relevant_atoms)
+    print("%d auxiliary atoms" % auxiliary_atoms)
+    print("%d final queue length" % num_pops)
+    print("%d total queue pushes" % queue.num_pushes)
+    return
 
 if __name__ == "__main__":
     import pddl_parser

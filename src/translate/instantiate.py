@@ -6,10 +6,11 @@ sys.path.append(os.path.dirname(__file__))
 
 from collections import defaultdict
 
-from . import build_model
-from . import pddl_to_prolog
+import pg_build_model as build_model
+import pddl_to_prolog
 import pddl_utils as pddl
-from . import timers
+import timers
+
 
 def get_fluent_facts(task, model):
     fluent_predicates = set()
