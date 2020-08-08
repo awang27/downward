@@ -2,7 +2,7 @@
 
 import sys
 import os
-sys.path.append(os.path.dirname(__file__))
+sys.path.insert(0, os.path.dirname(__file__))
 
 from collections import defaultdict
 
@@ -81,12 +81,17 @@ def instantiate(task, model):
     return (relaxed_reachable, fluent_facts, instantiated_actions,
             sorted(instantiated_axioms), reachable_action_parameters)
 
-def explore(task):
-    prog = pddl_to_prolog.translate(task)
-    model = build_model.compute_model(prog)
-    with timers.timing("Completing instantiation"):
-        return instantiate(task, model)
-
+def explore(task, max_num_actions, pg_generator):
+    if pg_generator is None:
+        prog = pddl_to_prolog.translate(task)
+        model = build_model.compute_model(prog)
+        with timers.timing("Completing instantiation"):
+            return instantiate(task, model)
+    else:
+        while True:
+            relaxed_reachable, fluent_facts, instantiated_actions, reachable_action_parameters = next(pg_generator)
+            if len(instantiated_actions) >= max_num_actions:
+                return (relaxed_reachable, fluent_facts, instantiated_actions, [], reachable_action_parameters)
 
 
 def incremental_instantiate(task, model):
@@ -107,44 +112,58 @@ def incremental_instantiate(task, model):
 
     type_to_objects = get_objects_by_type(task.objects, task.types)
 
+    relaxed_reachable = False
+    instantiated_actions = []
+    reachable_action_parameters = defaultdict(list)
     for atom in model:
         if isinstance(atom.predicate, pddl.Action):
             action = atom.predicate
             parameters = action.parameters
+            inst_parameters = atom.args[:len(parameters)]
+            # Note: It's important that we use the action object
+            # itself as the key in reachable_action_parameters (rather
+            # than action.name) since we can have multiple different
+            # actions with the same name after normalization, and we
+            # want to distinguish their instantiations.
+            reachable_action_parameters[action].append(inst_parameters)
             variable_mapping = {par.name: arg
                                 for par, arg in zip(parameters, atom.args)}
             inst_action = action.instantiate(
                 variable_mapping, init_facts, init_assignments,
                 fluent_facts, type_to_objects,
                 task.use_min_cost_metric)
-            if inst_action:
-                yield inst_action
+            if inst_action:  # found a new action, yield everything so far
+                instantiated_actions.append(inst_action)
+                yield relaxed_reachable, fluent_facts, instantiated_actions, reachable_action_parameters
         elif atom.predicate in fluent_predicates:
             fluent_facts.add(atom)
+        elif atom.predicate == "@goal-reachable":
+            relaxed_reachable = True
     return
 
-def run_partial_grounding(task, action_prioritizer):
+
+def create_partial_grounding_generator(task, action_prioritizer):
     prog = pddl_to_prolog.translate(task)
-    model = build_model.partial_grounding_compute_model(prog, 
+    model = build_model.partial_grounding_compute_model(prog,
         action_prioritizer=action_prioritizer)
     return incremental_instantiate(task, model)
 
 
-if __name__ == "__main__":
-    import pddl_parser
-    task = pddl_parser.open()
-    relaxed_reachable, atoms, actions, axioms, _ = explore(task)
-    print("goal relaxed reachable: %s" % relaxed_reachable)
-    print("%d atoms:" % len(atoms))
-    for atom in atoms:
-        print(" ", atom)
-    print()
-    print("%d actions:" % len(actions))
-    for action in actions:
-        action.dump()
-        print()
-    print()
-    print("%d axioms:" % len(axioms))
-    for axiom in axioms:
-        axiom.dump()
-        print()
+# if __name__ == "__main__":
+#     import pddl_parser
+#     task = pddl_parser.open()
+#     relaxed_reachable, atoms, actions, axioms, _ = explore(task)
+#     print("goal relaxed reachable: %s" % relaxed_reachable)
+#     print("%d atoms:" % len(atoms))
+#     for atom in atoms:
+#         print(" ", atom)
+#     print()
+#     print("%d actions:" % len(actions))
+#     for action in actions:
+#         action.dump()
+#         print()
+#     print()
+#     print("%d axioms:" % len(axioms))
+#     for axiom in axioms:
+#         axiom.dump()
+#         print()

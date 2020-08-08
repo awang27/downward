@@ -20,14 +20,14 @@ import axiom_rules
 import fact_groups
 import instantiate
 import normalize
-import options
+# import options
 import pddl_utils as pddl
 import pddl_parser
 import sas_tasks
 import signal
 import simplify
 import timers
-import tools
+import my_tools
 import variable_order
 
 # TODO: The translator may generate trivial derived variables which are always
@@ -276,7 +276,7 @@ def translate_strips_operator_aux(operator, dictionary, ranges, mutex_dict,
 
 def build_sas_operator(name, condition, effects_by_variable, cost, ranges,
                        implied_facts):
-    if options.add_implied_preconditions:
+    if False:#options.add_implied_preconditions:
         implied_precondition = set()
         for fact in condition.items():
             implied_precondition.update(implied_facts[fact])
@@ -299,8 +299,9 @@ def build_sas_operator(name, condition, effects_by_variable, cost, ranges,
                                                   effects_on_var):
                     global simplified_effect_condition_counter
                     simplified_effect_condition_counter += 1
-                if (options.add_implied_preconditions and pre == -1 and
-                        (var, 1 - post) in implied_precondition):
+                # if (options.add_implied_preconditions and pre == -1 and
+                #         (var, 1 - post) in implied_precondition):
+                if False:
                     global added_implied_precondition_counter
                     added_implied_precondition_counter += 1
                     pre = 1 - post
@@ -438,9 +439,9 @@ def translate_task(strips_to_sas, ranges, translation_key,
                    actions, axioms, metric, implied_facts):
     with timers.timing("Processing axioms", block=True):
         axioms, axiom_layer_dict = axiom_rules.handle_axioms(actions, axioms, goals,
-                                                             options.layer_strategy)
+                                                             "min")#options.layer_strategy)
 
-    if options.dump_task:
+    if False:#options.dump_task:
         # Remove init facts that don't occur in strips_to_sas: they're constant.
         nonconstant_init = filter(strips_to_sas.get, init)
         dump_task(nonconstant_init, goals, actions, axioms, axiom_layer_dict)
@@ -520,10 +521,11 @@ def unsolvable_sas_task(msg):
     print("%s! Generating unsolvable task..." % msg)
     return trivial_task(solvable=False)
 
-def pddl_to_sas(task):
+def pddl_to_sas(task, max_num_actions, pg_generator):
     with timers.timing("Instantiating", block=True):
         (relaxed_reachable, atoms, actions, axioms,
-         reachable_action_params) = instantiate.explore(task)
+         reachable_action_params) = instantiate.explore(
+             task, max_num_actions, pg_generator)
 
     if not relaxed_reachable:
         return unsolvable_sas_task("No relaxed solution")
@@ -542,13 +544,13 @@ def pddl_to_sas(task):
 
     with timers.timing("Building STRIPS to SAS dictionary"):
         ranges, strips_to_sas = strips_to_sas_dictionary(
-            groups, assert_partial=options.use_partial_encoding)
+            groups, assert_partial=True)#options.use_partial_encoding)
 
     with timers.timing("Building dictionary for full mutex groups"):
         mutex_ranges, mutex_dict = strips_to_sas_dictionary(
             mutex_groups, assert_partial=False)
 
-    if options.add_implied_preconditions:
+    if False:#options.add_implied_preconditions:
         with timers.timing("Building implied facts dictionary..."):
             implied_facts = build_implied_facts(strips_to_sas, groups,
                                                 mutex_groups)
@@ -556,7 +558,7 @@ def pddl_to_sas(task):
         implied_facts = {}
 
     with timers.timing("Building mutex information", block=True):
-        if options.use_partial_encoding:
+        if True:#options.use_partial_encoding:
             mutex_key = build_mutex_key(strips_to_sas, mutex_groups)
         else:
             # With our current representation, emitting complete mutex
@@ -578,7 +580,7 @@ def pddl_to_sas(task):
     print("%d implied preconditions added" %
           added_implied_precondition_counter)
 
-    if options.filter_unreachable_facts:
+    if True:#options.filter_unreachable_facts:
         with timers.timing("Detecting unreachable propositions", block=True):
             try:
                 simplify.filter_unreachable_propositions(sas_task)
@@ -587,17 +589,17 @@ def pddl_to_sas(task):
             except simplify.TriviallySolvable:
                 return solvable_sas_task("Simplified to empty goal")
 
-    if options.reorder_variables or options.filter_unimportant_vars:
+    if True:#options.reorder_variables or options.filter_unimportant_vars:
         with timers.timing("Reordering and filtering variables", block=True):
             variable_order.find_and_apply_variable_order(
-                sas_task, options.reorder_variables,
-                options.filter_unimportant_vars)
+                sas_task,True,True)# options.reorder_variables,
+                # options.filter_unimportant_vars)
 
     return sas_task
 
 
 def build_mutex_key(strips_to_sas, groups):
-    assert options.use_partial_encoding
+    # assert options.use_partial_encoding
     group_keys = []
     for group in groups:
         group_key = []
@@ -672,34 +674,33 @@ def dump_statistics(sas_task):
     print("Translator axioms: %d" % len(sas_task.axioms))
     print("Translator task size: %d" % sas_task.get_encoding_size())
     try:
-        peak_memory = tools.get_peak_memory_in_kb()
+        peak_memory = my_tools.get_peak_memory_in_kb()
     except Warning as warning:
         print(warning)
     else:
         print("Translator peak memory: %d KB" % peak_memory)
 
 
-def main():
+def main(task=None, sas_fname=None, max_num_actions=float("inf"),
+         pg_generator=None):
     timer = timers.Timer()
-    with timers.timing("Parsing", True):
-        task = pddl_parser.open(
-            domain_filename=options.domain, task_filename=options.task)
+    if task is None:
+        import options
+        domain_fname = options.domain
+        task_fname = options.task
+        sas_fname = options.sas_file
+        with timers.timing("Parsing", True):
+            task = pddl_parser.open(
+                domain_filename=domain_fname, task_filename=task_fname)
 
     with timers.timing("Normalizing task"):
         normalize.normalize(task)
 
-    if options.generate_relaxed_task:
-        # Remove delete effects.
-        for action in task.actions:
-            for index, effect in reversed(list(enumerate(action.effects))):
-                if effect.literal.negated:
-                    del action.effects[index]
-
-    sas_task = pddl_to_sas(task)
+    sas_task = pddl_to_sas(task, max_num_actions, pg_generator)
     dump_statistics(sas_task)
 
     with timers.timing("Writing output"):
-        with open(options.sas_file, "w") as output_file:
+        with open(sas_fname, "w") as output_file:
             sas_task.output(output_file)
     print("Done! %s" % timer)
 

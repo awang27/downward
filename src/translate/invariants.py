@@ -3,7 +3,7 @@ import itertools
 
 import constraints
 import pddl_utils as pddl
-import tools
+import my_tools
 
 # Notes:
 # All parts of an invariant always use all non-counted variables
@@ -23,7 +23,7 @@ def invert_list(alist):
 def instantiate_factored_mapping(pairs):
     part_mappings = [[list(zip(preimg, perm_img)) for perm_img in itertools.permutations(img)]
                      for (preimg, img) in pairs]
-    return tools.cartesian_product(part_mappings)
+    return my_tools.cartesian_product(part_mappings)
 
 
 def find_unique_variables(action, invariant):

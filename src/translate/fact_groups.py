@@ -1,5 +1,5 @@
 import invariant_finder
-import options
+# import options
 import pddl_utils as pddl
 import timers
 
@@ -49,7 +49,7 @@ class GroupCoverQueue:
     __nonzero__ = __bool__
     def pop(self):
         result = list(self.top) # Copy; this group will shrink further.
-        if options.use_partial_encoding:
+        if True:#options.use_partial_encoding:
             for fact in result:
                 for group in self.groups_by_fact[fact]:
                     group.remove(fact)

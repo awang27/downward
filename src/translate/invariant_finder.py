@@ -6,7 +6,7 @@ import itertools
 import time
 
 import invariants
-import options
+# import options
 import pddl_utils as pddl
 import timers
 
@@ -84,7 +84,7 @@ def get_initial_invariants(task):
             yield invariants.Invariant((part,))
 
 def find_invariants(task, reachable_action_params):
-    limit = options.invariant_generation_max_candidates
+    limit = 100000#options.invariant_generation_max_candidates
     candidates = deque(itertools.islice(get_initial_invariants(task), 0, limit))
     print(len(candidates), "initial candidates")
     seen_candidates = set(candidates)
@@ -99,7 +99,7 @@ def find_invariants(task, reachable_action_params):
     start_time = time.process_time()
     while candidates:
         candidate = candidates.popleft()
-        if time.process_time() - start_time > options.invariant_generation_max_time:
+        if time.process_time() - start_time > 300:#options.invariant_generation_max_time:
             print("Time limit reached, aborting invariant generation")
             return
         if candidate.check_balance(balance_checker, enqueue_func):
