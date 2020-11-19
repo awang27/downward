@@ -116,7 +116,10 @@ class PlanManager:
     def delete_existing_plans(self):
         """Delete all plans that match the given plan prefix."""
         for plan in self.get_existing_plans():
-            os.remove(plan)
+            try:
+                os.remove(plan)
+            except FileNotFoundError:
+                pass
 
     def _get_plan_file(self, number):
         return "%s.%d" % (self._plan_prefix, number)
