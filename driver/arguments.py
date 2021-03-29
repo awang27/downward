@@ -244,12 +244,15 @@ def _set_components_and_inputs(parser, args):
         elif num_files == 1:
             task_file, = args.filenames
             domain_file = util.find_domain_filename(task_file)
-            args.translate_inputs = [domain_file, task_file]
+            objects_file = 'None'
+            args.translate_inputs = [domain_file, task_file, objects_file]
         elif num_files == 2:
-            args.translate_inputs = args.filenames
+            args.translate_inputs = args.filenames + ['None']
+        elif num_files == 3:
+            args.translate_inputs = args.filenames 
         else:
             print_usage_and_exit_with_driver_input_error(
-                parser, "translator needs one or two input files")
+                parser, "translator needs one, two, or three input files")
     elif first == "search":
         if "--help" in args.search_options:
             args.search_input = None

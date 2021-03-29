@@ -29,6 +29,7 @@ import simplify
 import timers
 import my_tools
 import variable_order
+import pickle
 
 # TODO: The translator may generate trivial derived variables which are always
 # true, for example if there ia a derived predicate in the input that only
@@ -171,15 +172,16 @@ def translate_strips_conditions(conditions, dictionary, ranges,
 
 
 def translate_strips_operator(operator, dictionary, ranges, mutex_dict,
-                              mutex_ranges, implied_facts):
+                              mutex_ranges, implied_facts, objects):
     conditions = translate_strips_conditions(operator.precondition, dictionary,
                                              ranges, mutex_dict, mutex_ranges)
     traceback.print_exc(file=sys.stdout)
-    print(operator.precondition)
-    print(operator.add_effects)
-    print(operator.del_effects)
+    # TODO: use `objects` to prune operator stuff!
+    print(operator.precondition, type(operator.precondition))
+    print(operator.add_effects, type(operator.add_effects))
+    print(operator.del_effects, type(operator.del_effects))
     # print(operator.parameters)
-    print(operator.name)
+    print(operator.name, type(operator.name))
     # print(dictionary)
     # help(operator)
     print("\n\n\n\n\n======")
@@ -397,12 +399,12 @@ def translate_strips_axiom(axiom, dictionary, ranges, mutex_dict, mutex_ranges):
 
 
 def translate_strips_operators(actions, strips_to_sas, ranges, mutex_dict,
-                               mutex_ranges, implied_facts):
+                               mutex_ranges, implied_facts, objects):
     result = []
     for action in actions:
         sas_ops = translate_strips_operator(action, strips_to_sas, ranges,
                                             mutex_dict, mutex_ranges,
-                                            implied_facts)
+                                            implied_facts, objects)
         result.extend(sas_ops)
     print("\n\n\n\n=====")
     print(result[0])
@@ -448,7 +450,7 @@ def dump_task(init, goals, actions, axioms, axiom_layer_dict):
 def translate_task(strips_to_sas, ranges, translation_key,
                    mutex_dict, mutex_ranges, mutex_key,
                    init, goals,
-                   actions, axioms, metric, implied_facts):
+                   actions, axioms, metric, implied_facts, objects):
     with timers.timing("Processing axioms", block=True):
         axioms, axiom_layer_dict = axiom_rules.handle_axioms(actions, axioms, goals,
                                                              "min")#options.layer_strategy)
@@ -490,7 +492,7 @@ def translate_task(strips_to_sas, ranges, translation_key,
 
     operators = translate_strips_operators(actions, strips_to_sas, ranges,
                                            mutex_dict, mutex_ranges,
-                                           implied_facts)
+                                           implied_facts, objects)
     axioms = translate_strips_axioms(axioms, strips_to_sas, ranges, mutex_dict,
                                      mutex_ranges)
 
@@ -533,7 +535,7 @@ def unsolvable_sas_task(msg):
     print("%s! Generating unsolvable task..." % msg)
     return trivial_task(solvable=False)
 
-def pddl_to_sas(task, max_num_actions, pg_generator):
+def pddl_to_sas(task, max_num_actions, pg_generator, objects):
     with timers.timing("Instantiating", block=True):
         (relaxed_reachable, atoms, actions, axioms,
          reachable_action_params) = instantiate.explore(
@@ -585,7 +587,7 @@ def pddl_to_sas(task, max_num_actions, pg_generator):
             strips_to_sas, ranges, translation_key,
             mutex_dict, mutex_ranges, mutex_key,
             task.init, goal_list, actions, axioms, task.use_min_cost_metric,
-            implied_facts)
+            implied_facts, objects)
 
     print("%d effect conditions simplified" %
           simplified_effect_condition_counter)
@@ -696,10 +698,15 @@ def dump_statistics(sas_task):
 def main(task=None, sas_fname=None, max_num_actions=float("inf"),
          pg_generator=None):
     timer = timers.Timer()
+    objects = None
     if task is None:
         import options
         domain_fname = options.domain
         task_fname = options.task
+        objects_fname = options.objects
+        if objects_fname is not "None":
+            with open(objects_fname, 'rb') as inp:
+                objects = pickle.load(inp)
         sas_fname = options.sas_file
         with timers.timing("Parsing", True):
             task = pddl_parser.open(
@@ -708,7 +715,7 @@ def main(task=None, sas_fname=None, max_num_actions=float("inf"),
     with timers.timing("Normalizing task"):
         normalize.normalize(task)
 
-    sas_task = pddl_to_sas(task, max_num_actions, pg_generator)
+    sas_task = pddl_to_sas(task, max_num_actions, pg_generator, objects)
     dump_statistics(sas_task)
 
     with timers.timing("Writing output"):

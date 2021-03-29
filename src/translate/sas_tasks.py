@@ -19,6 +19,16 @@ class SASTask:
         self.goal = goal
         self.operators = sorted(operators, key=lambda op: (
             op.name, op.prevail, op.pre_post))
+        
+        # remove duplicates
+        new_operators = []
+        last_operator = None
+        for op in self.operators:
+            if op != last_operator:
+                last_operator = op
+                new_operators.append(op)
+        self.operators = new_operators
+        
         self.axioms = sorted(axioms, key=lambda axiom: (
             axiom.condition, axiom.effect))
         self.metric = metric
@@ -395,6 +405,11 @@ class SASOperator:
                 assert var not in conditions or conditions[var] == pre
                 conditions[var] = pre
         return sorted(conditions.items())
+    
+    def __eq__(self, obj):
+        if type(obj)!=type(self):
+            return False
+        return obj.name == self.name and obj.prevail == self.prevail and obj.pre_post == self.pre_post and obj.cost == self.cost
 
 
 class SASAxiom:

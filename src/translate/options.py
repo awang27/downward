@@ -9,6 +9,8 @@ def parse_args():
     argparser.add_argument(
         "task", help="path to task pddl file")
     argparser.add_argument(
+        "objects", help="path to task objects file")
+    argparser.add_argument(
         "--relaxed", dest="generate_relaxed_task", action="store_true",
         help="output relaxed task (no delete effects)")
     argparser.add_argument(
