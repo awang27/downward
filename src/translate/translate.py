@@ -174,6 +174,16 @@ def translate_strips_operator(operator, dictionary, ranges, mutex_dict,
                               mutex_ranges, implied_facts):
     conditions = translate_strips_conditions(operator.precondition, dictionary,
                                              ranges, mutex_dict, mutex_ranges)
+    traceback.print_exc(file=sys.stdout)
+    print(operator.precondition)
+    print(operator.add_effects)
+    print(operator.del_effects)
+    # print(operator.parameters)
+    print(operator.name)
+    # print(dictionary)
+    # help(operator)
+    print("\n\n\n\n\n======")
+    sys.exit(0)
     if conditions is None:
         return []
     sas_operators = []
@@ -394,6 +404,8 @@ def translate_strips_operators(actions, strips_to_sas, ranges, mutex_dict,
                                             mutex_dict, mutex_ranges,
                                             implied_facts)
         result.extend(sas_ops)
+    print("\n\n\n\n=====")
+    print(result[0])
     return result
 
 
