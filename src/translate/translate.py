@@ -171,19 +171,64 @@ def translate_strips_conditions(conditions, dictionary, ranges,
     return translate_strips_conditions_aux(conditions, dictionary, ranges)
 
 
+def _remove_objects_from_atom(atom, objects):
+    new_args = []
+    for arg in atom.args:
+        if arg in objects:
+            new_args.append(arg)
+    # if all args dropped, drop the whole predicate. otherwise just drop those args.
+    if len(new_args) == 0:
+        return None
+    else:
+        new_args = tuple(new_args)
+        return pddl.Atom(atom.predicate, new_args)
+
+
+def _remove_objects_from_effects(effects, objects):
+    new_effects = []
+    for effect in effects:
+        conditions, fact = effect
+        new_conditions = []
+        for atom in conditions:
+            new_atom = _remove_objects_from_atom(atom, objects)
+            if new_atom:
+                new_conditions.append(new_atom)
+        new_fact = _remove_objects_from_atom(fact, objects)
+        if new_fact is not None:
+            new_effects.append((new_conditions, new_fact))
+    return new_effects
+
+
 def translate_strips_operator(operator, dictionary, ranges, mutex_dict,
                               mutex_ranges, implied_facts, objects):
     conditions = translate_strips_conditions(operator.precondition, dictionary,
                                              ranges, mutex_dict, mutex_ranges)
     traceback.print_exc(file=sys.stdout)
-    # TODO: use `objects` to prune operator stuff!
-    print(operator.precondition, type(operator.precondition))
-    print(operator.add_effects, type(operator.add_effects))
-    print(operator.del_effects, type(operator.del_effects))
-    # print(operator.parameters)
-    print(operator.name, type(operator.name))
-    # print(dictionary)
-    # help(operator)
+
+    # remove objects from name
+    tokens = operator.name[1:-1].replace(",","").split(" ")
+    operator_objs = tokens[1:]
+    new_name = "(" + tokens[0]
+    for obj in operator_objs:
+        if obj in objects:
+            new_name += " " + obj
+    new_name += ")"
+    operator.name = new_name
+    
+    new_precondition = []
+    for atom in operator.precondition:
+        new_atom = _remove_objects_from_atom(atom, objects)
+        if new_atom:
+            new_precondition.append(new_atom)
+    operator.precondition = new_precondition
+
+    operator.add_effects = _remove_objects_from_effects(operator.add_effects, objects)
+    operator.del_effects = _remove_objects_from_effects(operator.del_effects, objects)
+
+    print(operator.name)
+    print(operator.precondition)
+    print(operator.add_effects)
+    print(operator.del_effects)
     print("\n\n\n\n\n======")
     sys.exit(0)
     if conditions is None:
